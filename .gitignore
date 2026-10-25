@@ -48,3 +48,5 @@ qrenderdoc/3rdparty/pyside
 .DS_Store
 plugins-*/
 __pycache__
+parse_dump.py
+run_cdb.ps1
