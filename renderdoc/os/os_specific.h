@@ -74,7 +74,8 @@ struct ProcessResult
   int retCode;
 };
 uint32_t LaunchProcess(const rdcstr &app, const rdcstr &workingDir, const rdcstr &cmdLine,
-                       bool internal, ProcessResult *result = NULL);
+                       bool internal, ProcessResult *result = NULL,
+                       bool breakawayFromJob = false);
 uint32_t LaunchScript(const rdcstr &script, const rdcstr &workingDir, const rdcstr &args,
                       bool internal, ProcessResult *result = NULL);
 rdcpair<RDResult, uint32_t> LaunchAndInjectIntoProcess(const rdcstr &app, const rdcstr &workingDir,

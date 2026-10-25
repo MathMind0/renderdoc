@@ -205,7 +205,10 @@ static uint32_t LaunchReplayUI(uint32_t connectTargetControl, const char *cmdlin
     cmd += StringFormat::Fmt(" --targetcontrol localhost:%u",
                              RenderDoc::Inst().GetTargetControlIdent());
 
-  return Process::LaunchProcess(replayapp, "", cmd, false);
+  // launch the replay UI detached from any job object we might be in (e.g. a UE editor session
+  // managed by an outer job with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE). that way the UI survives
+  // the target application exiting, instead of being silently killed with the whole job.
+  return Process::LaunchProcess(replayapp, "", cmd, false, NULL, true);
 }
 
 static void SetActiveWindow(void *device, void *wndHandle)

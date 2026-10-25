@@ -698,7 +698,8 @@ rdcpair<RDResult, uint32_t> Process::InjectIntoProcess(uint32_t pid,
 }
 
 uint32_t Process::LaunchProcess(const rdcstr &app, const rdcstr &workingDir, const rdcstr &cmdLine,
-                                bool internal, ProcessResult *result)
+                                bool internal, ProcessResult *result,
+                                bool breakawayFromJob)
 {
   if(app.empty())
   {

@@ -435,7 +435,8 @@ void InjectFunctionCall(HANDLE hProcess, uintptr_t renderdoc_remote, const char 
 static PROCESS_INFORMATION RunProcess(const rdcstr &app, const rdcstr &workingDir,
                                       const rdcstr &cmdLine,
                                       const rdcarray<EnvironmentModification> &env, bool internal,
-                                      HANDLE *phChildStdOutput_Rd, HANDLE *phChildStdError_Rd)
+                                      HANDLE *phChildStdOutput_Rd, HANDLE *phChildStdError_Rd,
+                                      bool breakawayFromJob = false)
 {
   PROCESS_INFORMATION pi;
   STARTUPINFO si;
@@ -545,11 +546,30 @@ static PROCESS_INFORMATION RunProcess(const rdcstr &app, const rdcstr &workingDi
     }
   }
 
-  BOOL retValue = CreateProcessW(
-      NULL, paramsAlloc, &pSec, &tSec, inheritHandles, CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
-      envString.empty() ? NULL : (void *)envString.data(), workdir.c_str(), &si, &pi);
+  DWORD creationFlags = CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT;
+  if(breakawayFromJob)
+    creationFlags |= CREATE_BREAKAWAY_FROM_JOB;
+
+  BOOL retValue = CreateProcessW(NULL, paramsAlloc, &pSec, &tSec, inheritHandles, creationFlags,
+                                 envString.empty() ? NULL : (void *)envString.data(),
+                                 workdir.c_str(), &si, &pi);
 
   DWORD err = GetLastError();
+
+  // the job we're in may not permit breakaway (no JOB_OBJECT_LIMIT_BREAKAWAY_OK). retry without
+  // the flag so the launch still succeeds and the process stays in the job, same as before.
+  if(!retValue && (creationFlags & CREATE_BREAKAWAY_FROM_JOB))
+  {
+    RDCWARN("Couldn't launch process with breakaway from job, retrying without breakaway");
+
+    creationFlags &= ~CREATE_BREAKAWAY_FROM_JOB;
+
+    retValue = CreateProcessW(NULL, paramsAlloc, &pSec, &tSec, inheritHandles, creationFlags,
+                              envString.empty() ? NULL : (void *)envString.data(),
+                              workdir.c_str(), &si, &pi);
+
+    err = GetLastError();
+  }
 
   if(phChildStdOutput_Rd)
   {
@@ -1049,7 +1069,8 @@ rdcpair<RDResult, uint32_t> Process::InjectIntoProcess(uint32_t pid,
 }
 
 uint32_t Process::LaunchProcess(const rdcstr &app, const rdcstr &workingDir, const rdcstr &cmdLine,
-                                bool internal, ProcessResult *result)
+                                bool internal, ProcessResult *result,
+                                bool breakawayFromJob)
 {
   HANDLE hChildStdOutput_Rd = NULL, hChildStdError_Rd = NULL;
 
@@ -1063,7 +1084,7 @@ uint32_t Process::LaunchProcess(const rdcstr &app, const rdcstr &workingDir, con
 
   PROCESS_INFORMATION pi =
       RunProcess(appPath, workingDir, cmdLine, {}, internal, result ? &hChildStdOutput_Rd : NULL,
-                 result ? &hChildStdError_Rd : NULL);
+                 result ? &hChildStdError_Rd : NULL, breakawayFromJob);
 
   if(pi.dwProcessId == 0)
   {
