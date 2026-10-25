@@ -820,7 +820,7 @@ FARPROC WINAPI Hooked_GetProcAddress(HMODULE mod, const LPCSTR func)
 
         if(ordinal < it->second.OrdinalBase)
         {
-          RDCERR("Unexpected ordinal - lower than ordinalbase %u for %s",
+          RDCWARN("Unexpected ordinal - lower than ordinalbase %u for %s",
                  (uint32_t)it->second.OrdinalBase, it->first.c_str());
 
           SetLastError(S_OK);
@@ -831,7 +831,7 @@ FARPROC WINAPI Hooked_GetProcAddress(HMODULE mod, const LPCSTR func)
 
         if(ordinal >= it->second.OrdinalNames.size())
         {
-          RDCERR("Unexpected ordinal - higher than fetched ordinal names (%u) for %s",
+          RDCWARN("Unexpected ordinal - higher than fetched ordinal names (%u) for %s",
                  (uint32_t)it->second.OrdinalNames.size(), it->first.c_str());
 
           SetLastError(S_OK);
