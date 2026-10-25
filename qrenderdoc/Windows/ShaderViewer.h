@@ -191,6 +191,8 @@ private slots:
   void on_floatView_clicked();
   void on_debugToggle_clicked();
   void on_toggleLog_clicked();
+  void on_fontIncrease_clicked();
+  void on_fontDecrease_clicked();
 
   void on_resources_sortByStep_clicked();
   void on_resources_sortByResource_clicked();
@@ -283,6 +285,10 @@ private:
   ScintillaEdit *m_FindResults = NULL;
   QList<ScintillaEdit *> m_Scintillas;
 
+  // the font zoom level applied with the +/- toolbar buttons. Tracked so that editors created
+  // later (e.g. when changing disassembly type) can apply the same zoom level.
+  int m_FontZoomLevel = 0;
+
   // a map, from a source location to a list of instruction blocks with that location.
   // not every instruction with the instruction will be mapped to, only the first in each contiguous
   // run
@@ -355,6 +361,10 @@ private:
 
   ScintillaEdit *MakeEditor(const QString &name, const QString &text, int lang);
   void SetTextAndUpdateMargin0(ScintillaEdit *ret, const QString &text);
+  void UpdateMargin0Width(ScintillaEdit *sc);
+  void ApplyFontZoom();
+  void on_editorZoom(int zoomLevel);
+  void ChangeFontZoom(int delta);
 
   ScintillaEdit *AddFileScintilla(const QString &name, const QString &text, ShaderEncoding encoding);
 

@@ -1671,6 +1671,22 @@ ScintillaEdit *ShaderViewer::AddFileScintilla(const QString &name, const QString
   return scintilla;
 }
 
+void ShaderViewer::on_editorZoom(int zoomLevel)
+{
+  // a zoom was applied directly on an editor (e.g. with ctrl+wheel). Apply the same zoom
+  // level to all editors so they stay consistent, and update our tracked level so that
+  // editors created later match.
+  if(zoomLevel != m_FontZoomLevel)
+  {
+    m_FontZoomLevel = zoomLevel;
+
+    ApplyFontZoom();
+
+    ui->fontIncrease->setEnabled(m_FontZoomLevel < 20);
+    ui->fontDecrease->setEnabled(m_FontZoomLevel > -10);
+  }
+}
+
 ScintillaEdit *ShaderViewer::MakeEditor(const QString &name, const QString &text, int lang)
 {
   ScintillaEdit *ret = new ScintillaEdit(this);
@@ -1682,6 +1698,17 @@ ScintillaEdit *ShaderViewer::MakeEditor(const QString &name, const QString &text
 
   ret->styleSetFont(STYLE_DEFAULT, Formatter::FixedFont().family().toUtf8().data());
   ret->styleSetSize(STYLE_DEFAULT, Formatter::FixedFont().pointSize());
+
+  // apply any font zoom applied by the user, so newly opened editors match the current size
+  if(m_FontZoomLevel != 0)
+    ret->setZoom(m_FontZoomLevel);
+
+  // if the user zooms directly on an editor with ctrl+wheel, propagate it to all editors.
+  // Note: the zoom *signal* lives in ScintillaEditBase, we can't refer to it through
+  // ScintillaEdit because it is shadowed by the sptr_t zoom() const getter.
+  QObject::connect(ret, &ScintillaEditBase::zoom, [this](int zoomLevel) {
+    on_editorZoom(zoomLevel);
+  });
 
   // C# DarkGreen
   ret->indicSetFore(INDICATOR_REGHIGHLIGHT, SCINTILLA_COLOUR(0, 100, 0));
@@ -1714,6 +1741,11 @@ void ShaderViewer::SetTextAndUpdateMargin0(ScintillaEdit *sc, const QString &tex
 {
   sc->setText(text.toUtf8().data());
 
+  UpdateMargin0Width(sc);
+}
+
+void ShaderViewer::UpdateMargin0Width(ScintillaEdit *sc)
+{
   int numLines = sc->lineCount();
 
   // don't make the margin too narrow, it looks strange even if there are only 5 lines in a file
@@ -1723,6 +1755,48 @@ void ShaderViewer::SetTextAndUpdateMargin0(ScintillaEdit *sc, const QString &tex
   sptr_t width = sc->textWidth(SC_MARGIN_RTEXT, QString::number(numLines).toUtf8().data());
 
   sc->setMarginWidthN(0, int(width));
+}
+
+void ShaderViewer::ChangeFontZoom(int delta)
+{
+  // clamp to the same limits scintilla enforces for zooming
+  int newLevel = qBound(-10, m_FontZoomLevel + delta, 20);
+
+  if(newLevel == m_FontZoomLevel)
+    return;
+
+  m_FontZoomLevel = newLevel;
+
+  ApplyFontZoom();
+
+  // keep the buttons in sync with the actual zoom state, in case the level was clamped
+  ui->fontIncrease->setEnabled(m_FontZoomLevel < 20);
+  ui->fontDecrease->setEnabled(m_FontZoomLevel > -10);
+}
+
+void ShaderViewer::ApplyFontZoom()
+{
+  // zoom all editors at once, including the ones not tracked in m_Scintillas
+  QList<ScintillaEdit *> editors = m_Scintillas;
+
+  if(m_Errors)
+    editors.push_back(m_Errors);
+
+  if(m_FindResults)
+    editors.push_back(m_FindResults);
+
+  for(ScintillaEdit *edit : editors)
+  {
+    // the line number margin is sized relative to the font, so if it's enabled we have to
+    // recalculate its width once the font size changes. The other margins have fixed pixel
+    // widths so they don't need any changes.
+    bool lineNumbers = edit->marginWidthN(0) > 0;
+
+    edit->setZoom(m_FontZoomLevel);
+
+    if(lineNumbers)
+      UpdateMargin0Width(edit);
+  }
 }
 
 void ShaderViewer::debug_contextMenu(const QPoint &pos)
@@ -6858,6 +6932,16 @@ void ShaderViewer::on_resources_sortByStep_clicked()
   ui->resources_sortByStep->setChecked(true);
   ui->resources_sortByResource->setChecked(false);
   updateAccessedResources();
+}
+
+void ShaderViewer::on_fontIncrease_clicked()
+{
+  ChangeFontZoom(+1);
+}
+
+void ShaderViewer::on_fontDecrease_clicked()
+{
+  ChangeFontZoom(-1);
 }
 
 void ShaderViewer::on_resources_sortByResource_clicked()
